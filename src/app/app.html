@@ -2,66 +2,290 @@
   <!-- Header / HUD -->
   <header class="game-header">
     <div class="logo">
-      <h1>🌟 Tập Đọc 🌟</h1>
+      <h1>Phát âm</h1>
     </div>
     <div class="controls">
-      <input type="file" #fileInput accept=".json,.txt,.csv" style="display: none" (change)="onFileSelected($event)">
-      <button class="btn btn-import" (click)="fileInput.click()">
-        <span class="icon">📂</span> Nhập từ vựng
+      <input type="file" #fileInput accept=".json,.txt,.csv" style="display: none" [disabled]="gameState() !== 'IDLE'" (change)="onFileSelected($event)">
+      <button class="btn btn-import" [disabled]="gameState() !== 'IDLE'" (click)="fileInput.click()">
+        Nhập từ vựng
       </button>
-      <div class="vocab-count" title="Danh sách từ: {{ vocabulary().join(', ') }}">
-        📚 Đang có: {{ vocabulary().length }} từ
-      </div>
+      <button class="btn btn-teacher" [disabled]="gameState() !== 'IDLE'" (click)="toggleTeacherMode()">
+        Giáo viên
+      </button>
+      <button class="btn btn-mode" [disabled]="gameState() !== 'IDLE'" (click)="toggleImageMode()">
+        Chế độ: {{ isImageOnlyMode() ? 'Đoán Ảnh' : 'Chữ + Ảnh' }}
+      </button>
     </div>
     <div class="stats">
       <div class="score-board">
-        <span class="star-icon">⭐</span>
         <span class="score-text">Điểm: {{ score() }}</span>
       </div>
     </div>
   </header>
 
   <!-- Main Game Area -->
-  <main class="game-board">
-    <!-- Background decorations -->
-    <div class="cloud cloud-1"></div>
-    <div class="cloud cloud-2"></div>
-    <div class="sun"></div>
-
-    <!-- Falling Word -->
-    @if (activeWord(); as word) {
-      <div 
-        class="falling-word" 
-        [style.left.%]="word.xPosition" 
-        [style.top.%]="word.yPosition">
-        {{ word.text }}
+  <main class="game-board" [class.runner-mode]="gameMode() === 'RUNNER'">
+    @if (gameState() === 'IDLE') {
+      <div class="idle-screen" style="text-align: center; margin-top: 120px;">
+        <h2 style="font-size: 3rem; color: #2c3e50; margin-bottom: 10px;">Sẵn sàng chơi chưa?</h2>
+        <p style="font-size: 1.5rem; color: #7f8c8d;">Hãy chọn một chế độ chơi ở bên dưới để bắt đầu nhé!</p>
       </div>
-    }
+    } @else {
+      <!-- FALLING MODE -->
+      @if (gameMode() === 'FALLING') {
+        @if (activeWord(); as word) {
+          <div 
+            class="falling-word" 
+            [class.correct]="word.isCorrect"
+            [class.wrong]="word.isWrong"
+            [style.left.%]="word.xPosition" 
+            [style.top.%]="word.yPosition">
+            @if (word.image) {
+              <img [src]="word.image" class="word-image" alt="Minh hoạ">
+            }
+            @if (!isImageOnlyMode() || !word.image || word.isCorrect || word.wrongAttemptCount! >= 2) {
+              <span class="word-text">{{ word.text }}</span>
+            }
+          </div>
+        }
+      }
+    <!-- RUNNER MODE -->
+      @if (gameMode() === 'RUNNER') {
+        <div class="runner-hud">
+          <div class="lives">
+            @for (i of [1, 2, 3]; track i) {
+              <span>{{ i <= runnerLives() ? '❤️' : '🖤' }}</span>
+            }
+          </div>
+          <div class="timer-container">
+            <div class="timer-bar" 
+                 [style.width.%]="runnerTimeLeft()" 
+                 [class.danger]="runnerTimeLeft() < 30">
+            </div>
+          </div>
+        </div>
 
-    <!-- Bottom ground/grass area -->
-    <div class="ground">
-      <div class="grass-tuft t1"></div>
-      <div class="grass-tuft t2"></div>
-      <div class="grass-tuft t3"></div>
-    </div>
+        <div class="runner-character" 
+             [style.left.%]="runnerPosition()"
+             [class.running]="runnerIsMoving()">
+          <span class="char-icon">🏎️</span>
+        </div>
+
+        @if (activeWord(); as word) {
+          <div class="runner-obstacle" 
+               [style.left.%]="word.xPosition"
+               [class.correct]="word.isCorrect"
+               [class.wrong]="word.isWrong">
+            <div class="obstacle-brick">🚧</div>
+            <div class="obstacle-word">
+              @if (word.image) {
+                <img [src]="word.image" class="word-image" alt="Minh hoạ">
+              }
+              @if (!isImageOnlyMode() || !word.image || word.isCorrect) {
+                <span>{{ word.text }}</span>
+              }
+            </div>
+          </div>
+        }
+        
+        <div class="runner-ground"></div>
+      }
+    }
   </main>
 
   <!-- Footer / Controls -->
   <footer class="game-footer">
     <div class="mic-status" [class.listening]="isListening()">
       @if (isListening()) {
-        <span class="status-text">Đang nghe... 🎤 Hãy đọc thật to nhé!</span>
+        <span class="status-text">Đang nghe... Hãy đọc thật to nhé!</span>
       } @else {
         <span class="status-text">Bấm Bắt Đầu để chơi nha</span>
       }
+      <div class="mic-name">Nguồn thu: {{ activeMicName() }}</div>
     </div>
 
-    <button 
-      class="btn btn-mic" 
-      [class.active]="isListening()" 
-      (click)="toggleListening()">
-      <div class="mic-icon">🎙️</div>
-      <span>{{ isListening() ? 'Tạm Dừng' : 'Bắt Đầu' }}</span>
-    </button>
+    <!-- Ô Nhập Tĩnh (Dành cho Developer Test) -->
+    @if (gameState() === 'PLAYING') {
+      <div class="dev-tools">
+        <span class="dev-label">Dev Test:</span>
+        <input 
+          type="text" 
+          #devInput 
+          placeholder="Gõ chữ rồi ấn Enter để test..." 
+          (keyup.enter)="simulateVoice(devInput.value); devInput.value = ''">
+      </div>
+    }
+
+    <!-- Action Buttons -->
+    <div class="start-actions">
+      @if (gameState() === 'IDLE') {
+        <button class="btn btn-mic" (click)="startGame('FALLING')">
+          <span>Rơi Chữ</span>
+        </button>
+        <button class="btn btn-mic runner-btn" (click)="startGame('RUNNER')" style="background: linear-gradient(135deg, #f39c12, #e67e22);">
+          <span>Đua Xe</span>
+        </button>
+      } @else {
+        <button class="btn btn-mic active" (click)="stopGame()">
+          <span>Dừng</span>
+        </button>
+      }
+    </div>
   </footer>
+
+  <!-- Win Modal Popup -->
+  @if (showWinPopup()) {
+    <div class="win-modal-overlay">
+      <div class="win-modal-content">
+        <h2>Tuyệt vời!</h2>
+        <p>Bạn đã hoàn thành xuất sắc tất cả các từ vựng!</p>
+        <p class="final-score">Điểm của bạn: <span>{{ score() }}</span></p>
+        <button class="btn btn-play-again" (click)="returnToMainMenu()">Về màn hình chính</button>
+      </div>
+    </div>
+  }
+
+  <!-- Game Over Modal Popup -->
+  @if (showGameOverPopup()) {
+    <div class="win-modal-overlay game-over">
+      <div class="win-modal-content">
+        <h2 style="color: #e74c3c;">Game Over!</h2>
+        <p>Bạn đã hết mạng rồi.</p>
+        <p class="final-score">Điểm của bạn: <span>{{ score() }}</span></p>
+        <button class="btn btn-play-again" (click)="returnToMainMenu()" style="background: #e74c3c; box-shadow: 0 4px 0 #c0392b;">Về màn hình chính</button>
+      </div>
+    </div>
+  }
+
+  <!-- Import Language Selector Modal -->
+  @if (pendingImportData()) {
+    <div class="win-modal-overlay">
+      <div class="win-modal-content" style="max-width: 450px; position: relative;">
+        <!-- Nút X tắt popup -->
+        <button class="btn-close" style="position: absolute; top: 15px; right: 15px; font-size: 1.2rem; padding: 5px 10px; min-width: auto; background: #dfe4ea; box-shadow: none; border: none; color: #747d8c;" (click)="cancelImport()">✖</button>
+        
+        <h2>LƯU BỘ ĐỀ NÀY VÀO ĐÂU?</h2>
+        <p style="margin: 10px 0;">Tên bộ đề: <b>{{ pendingImportData()?.name }}</b></p>
+        <p style="margin: 10px 0;">Số từ vựng: <b>{{ pendingImportData()?.words?.length }} từ</b></p>
+        <p style="margin: 15px 0; color: #666;">Vui lòng chọn ngôn ngữ để lưu đúng vào danh sách:</p>
+        
+        <div style="display: flex; gap: 15px; justify-content: center; margin-top: 20px;">
+          <button class="btn" [ngClass]="pendingImportLanguage() === 'vi' ? 'btn-import' : 'btn-gray'" (click)="pendingImportLanguage.set('vi')">
+            Tiếng Việt
+          </button>
+          <button class="btn" [ngClass]="pendingImportLanguage() === 'en' ? 'btn-import' : 'btn-gray'" (click)="pendingImportLanguage.set('en')">
+            Tiếng Anh
+          </button>
+        </div>
+        
+        <div style="margin-top: 25px; text-align: center;">
+          <button class="btn btn-add" style="width: 100%; justify-content: center;" [disabled]="!pendingImportLanguage()" (click)="confirmImport()">
+            Xác Nhận
+          </button>
+        </div>
+      </div>
+    </div>
+  }
+
+  <!-- Create Lesson Modal -->
+  @if (pendingCreateLesson()) {
+    <div class="win-modal-overlay" style="z-index: 3000;">
+      <div class="win-modal-content" style="max-width: 450px; position: relative;">
+        <button class="btn-close" style="position: absolute; top: 15px; right: 15px; font-size: 1.2rem; padding: 5px 10px; min-width: auto; background: #dfe4ea; box-shadow: none; border: none; color: #747d8c;" (click)="cancelCreateLesson()">✖</button>
+        
+        <h2>TẠO BỘ ĐỀ MỚI</h2>
+        <div style="margin: 20px 0; text-align: left;">
+          <label style="font-weight: bold; color: #333; display: block; margin-bottom: 8px;">Tên bộ đề:</label>
+          <input type="text" style="width: 100%; padding: 12px; border: 2px solid #dfe4ea; border-radius: 8px; font-size: 1.1rem; outline: none; font-family: 'Quicksand', sans-serif;" [value]="newLessonName()" (input)="newLessonName.set($any($event.target).value)" placeholder="Nhập tên bộ đề...">
+        </div>
+        <p style="margin: 15px 0; color: #666; text-align: left; font-weight: bold;">Chọn ngôn ngữ:</p>
+        
+        <div style="display: flex; gap: 15px; justify-content: center; margin-top: 10px;">
+          <button class="btn" [ngClass]="newLessonLang() === 'vi' ? 'btn-import' : 'btn-gray'" (click)="newLessonLang.set('vi')">
+            Tiếng Việt
+          </button>
+          <button class="btn" [ngClass]="newLessonLang() === 'en' ? 'btn-import' : 'btn-gray'" (click)="newLessonLang.set('en')">
+            Tiếng Anh
+          </button>
+        </div>
+        
+        <div style="margin-top: 25px; text-align: center;">
+          <button class="btn btn-add" style="width: 100%; justify-content: center; background: #00b894; color: white;" [disabled]="!newLessonLang() || !newLessonName().trim()" (click)="confirmCreateLesson()">
+            Tạo Mới
+          </button>
+        </div>
+      </div>
+    </div>
+  }
+
+  <!-- Teacher CMS Modal -->
+  @if (isTeacherMode()) {
+    <div class="teacher-modal-overlay">
+      <div class="teacher-modal-content">
+        <div class="teacher-header">
+          <h2>Chế độ Giáo viên - Quản lý Bài giảng</h2>
+          <button class="btn-close" (click)="toggleTeacherMode()">Đóng</button>
+        </div>
+
+        <div class="teacher-add-box" style="margin-bottom: 15px; display: flex; flex-direction: column; gap: 15px;">
+          <div style="display: flex; align-items: center; gap: 10px; width: 100%;">
+            <label style="font-weight: bold; color: #333;">Chọn Đề:</label>
+            <select class="lesson-select" (change)="changeLesson($event)" [value]="activeLessonId()" style="flex: 1; padding: 10px; border-radius: 8px; font-family: 'Quicksand', sans-serif;">
+              <optgroup label="TIẾNG VIỆT">
+                @for (lesson of lessonsVi(); track lesson.id) {
+                  <option [value]="lesson.id">{{ lesson.name }}</option>
+                }
+              </optgroup>
+              <optgroup label="TIẾNG ANH">
+                @for (lesson of lessonsEn(); track lesson.id) {
+                  <option [value]="lesson.id">{{ lesson.name }}</option>
+                }
+              </optgroup>
+            </select>
+            <button class="btn btn-import" (click)="createNewLesson()">Tạo Đề</button>
+            <button class="btn btn-delete" (click)="deleteActiveLesson()">Xoá</button>
+          </div>
+          
+          <div style="display: flex; width: 100%; gap: 10px;">
+            <input type="text" placeholder="Nhập từ vựng mới..." [value]="newWordInput()" (input)="newWordInput.set($any($event.target).value)" (keyup.enter)="addTeacherWord()">
+            <button class="btn btn-add" (click)="addTeacherWord()">+ Thêm Từ</button>
+          </div>
+        </div>
+
+        <div class="teacher-list">
+          @for (item of vocabulary(); track item.text; let i = $index) {
+            <div class="teacher-list-item">
+              <span class="item-text">{{ item.text }}</span>
+              <div class="item-actions">
+                @if (recordingWordText() === item.text) {
+                  <button class="btn-record active" (click)="stopRecording()">Dừng</button>
+                } @else {
+                  <button class="btn-record" (click)="startRecording(item)" title="Thu âm">Thu âm</button>
+                }
+
+                @if (item.customAudio) {
+                  <button class="btn-play" (click)="playTeacherAudio(item)" title="Nghe lại">Nghe</button>
+                } @else {
+                  <span class="no-audio">Chưa có</span>
+                }
+                
+                <button class="btn-image" (click)="imgInput.click()" title="Thêm ảnh minh họa">Ảnh</button>
+                <input type="file" #imgInput accept="image/*" style="display: none" (change)="onImageSelected($event, item)">
+                @if (item.image) {
+                  <img [src]="item.image" class="item-thumb" alt="Thumb">
+                }
+
+                <button class="btn-delete" (click)="deleteTeacherWord(i)" title="Xóa">Xóa</button>
+              </div>
+            </div>
+          }
+        </div>
+
+        <div class="teacher-footer">
+          <button class="btn btn-export" (click)="exportTeacherData()">Tải xuống Bài giảng (.json)</button>
+          <p class="export-note">File tải xuống đã bao gồm toàn bộ chữ và âm thanh, học sinh chỉ cần bấm Nhập từ vựng là chơi được ngay!</p>
+        </div>
+      </div>
+    </div>
+  }
 </div>
