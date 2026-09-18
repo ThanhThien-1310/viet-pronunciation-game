@@ -95,41 +95,41 @@
 
   <!-- Footer / Controls -->
   <footer class="game-footer">
-    <div class="mic-status" [class.listening]="isListening()">
-      @if (isListening()) {
-        <span class="status-text">Đang nghe... Hãy đọc thật to nhé!</span>
-      } @else {
-        <span class="status-text">Bấm Bắt Đầu để chơi nha</span>
-      }
-      <div class="mic-name">Nguồn thu: {{ activeMicName() }}</div>
-    </div>
+    <div class="footer-content" [class.playing]="gameState() === 'PLAYING'">
+      
+      <!-- Cụm bên trái: Mic và Input test -->
+      <div class="left-controls">
+        <div class="mic-icon-status" [class.listening]="isListening()" [title]="'Nguồn thu: ' + activeMicName()">
+          <span class="icon">🎙️</span>
+        </div>
 
-    <!-- Ô Nhập Tĩnh (Dành cho Developer Test) -->
-    @if (gameState() === 'PLAYING') {
-      <div class="dev-tools">
-        <span class="dev-label">Dev Test:</span>
-        <input 
-          type="text" 
-          #devInput 
-          placeholder="Gõ chữ rồi ấn Enter để test..." 
-          (keyup.enter)="simulateVoice(devInput.value); devInput.value = ''">
+        @if (gameState() === 'PLAYING') {
+          <div class="dev-tools-inline">
+            <input 
+              type="text" 
+              #devInput 
+              placeholder="Nhập đáp án (để test)..." 
+              (keyup.enter)="simulateVoice(devInput.value); devInput.value = ''">
+          </div>
+        }
       </div>
-    }
 
-    <!-- Action Buttons -->
-    <div class="start-actions">
-      @if (gameState() === 'IDLE') {
-        <button class="btn btn-mic" (click)="startGame('FALLING')">
-          <span>Rơi Chữ</span>
-        </button>
-        <button class="btn btn-mic runner-btn" (click)="startGame('RUNNER')" style="background: linear-gradient(135deg, #f39c12, #e67e22);">
-          <span>Đua Xe</span>
-        </button>
-      } @else {
-        <button class="btn btn-mic active" (click)="stopGame()">
-          <span>Dừng</span>
-        </button>
-      }
+      <!-- Cụm bên phải: Nút Start/Stop -->
+      <div class="start-actions">
+        @if (gameState() === 'IDLE') {
+          <button class="btn btn-mic" (click)="startGame('FALLING')">
+            <span>Rơi Chữ</span>
+          </button>
+          <button class="btn btn-mic runner-btn" (click)="startGame('RUNNER')" style="background: linear-gradient(135deg, #f39c12, #e67e22);">
+            <span>Đua Xe</span>
+          </button>
+        } @else {
+          <button class="btn btn-mic active" (click)="stopGame()">
+            <span>Dừng</span>
+          </button>
+        }
+      </div>
+
     </div>
   </footer>
 
